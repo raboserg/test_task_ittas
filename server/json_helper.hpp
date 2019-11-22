@@ -51,6 +51,7 @@ public:
       return get_json_string(target_tree);
     }
     try {
+      bool found = false;
       pt::ptree array_child;
       for (auto &node : boost::make_iterator_range(root.equal_range(""))) {
         if (name == node.second.get<string>(NAME)) {
@@ -59,11 +60,16 @@ public:
           array_element.add(AGE, node.second.get<string>(AGE));
           array_element.add(PHONE, node.second.get<string>(PHONE));
           array_child.push_back(std::make_pair("", array_element));
+          found = true;
           break;
         }
       }
-      target_tree.put(STATUS, OK);
-      target_tree.put_child(pt::ptree::path_type(DATA), array_child);
+      if (found) {
+        target_tree.put(STATUS, OK);
+        target_tree.put_child(pt::ptree::path_type(DATA), array_child);
+      } else {
+        target_tree.put(STATUS, ERROR);
+      }
     } catch (const boost::exception &ex) {
       target_tree.put(STATUS, ERROR);
     }

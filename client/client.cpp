@@ -16,7 +16,7 @@ string get_json_string(pt::ptree &target_tree) {
   return oss.str();
 }
 
-string create_request(const string cmd) {
+string create_request(const string &cmd) {
   string request;
   pt::ptree pt;
   if (cmd == "close") {
@@ -29,7 +29,7 @@ string create_request(const string cmd) {
       request = get_json_string(pt);
     } else if (token.substr(0, token.find(" ")) == "--get-name") {
       string name = token.substr(token.find_first_of(" ") + 1);
-      if (!name.empty()) {
+      if (!name.empty() && name != " " && name != "--get-name") {
         for (const auto c : {'"', ' '})
           name.erase(std::remove(name.begin(), name.end(), c), name.end());
         pt.put("oper", "get-name");
@@ -57,11 +57,6 @@ int main(int argc, char *argv[]) {
   tcp::socket client_socket(io_context);
   connect(client_socket, endpoints);
 
-  //  boost::asio::io_service io_service;
-  //  ip::tcp::socket client_socket(io_context);
-  //  client_socket.connect(tcp::endpoint(address::from_string(argv[1]),
-  //                                      static_cast<u_short>(atoi(argv[2]))));
-
   bool session = true;
   while (session) {
     cout << "cmd > ";
@@ -71,7 +66,6 @@ int main(int argc, char *argv[]) {
       session = false;
     try {
       const string request = create_request(cmd);
-
       write(client_socket, buffer(request, request.length()));
       cout << "send ->  " << request;
       char response[MAX_LENGTH];
