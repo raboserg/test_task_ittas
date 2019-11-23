@@ -8,54 +8,62 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
-namespace pt = boost::property_tree;
 using namespace boost::asio;
 using namespace boost::asio::ip;
+namespace pt = boost::property_tree;
 
 class session : public enable_shared_from_this<session> {
 public:
-  session(io_context &io_context, const string data_file)
-      : socket_(io_context), json_helper_(data_file) {}
+  typedef shared_ptr<session> pointer;
 
-  ~session() { stop_service(); }
+  static pointer create(io_service &ios, const string data_file) {
+    return pointer(new session(ios, data_file));
+  }
+
+  session(io_service &ios, const string data_file)
+      : socket_(ios), json_helper_(data_file) {}
+
+  ~session() {}
 
   tcp::socket &socket() { return socket_; }
 
   void start() {
     cout << "client connected " << request_.c_array() << endl;
     socket_.async_read_some(buffer(request_, max_length),
-                            bind(&session::handle_write, this,
-                                 boost::asio::placeholders::error,
-                                 boost::asio::placeholders::bytes_transferred));
+                            bind(&session::handle_write, shared_from_this(),
+                                 boost::asio::placeholders::error));
   }
 
 private:
-  void handle_write(const boost::system::error_code &error, size_t size) {
-    if (error)
+  void handle_write(const error_code &error) {
+    if (error) {
+      cerr << BOOST_CURRENT_FUNCTION << error << endl;
       delete this;
+    }
     cout << "receive<-" << request_.c_array();
     if (!json_helper_.close_service(request_.c_array())) {
+      response_.assign(0);
       const string response = json_helper_.get_response(request_.c_array());
       copy(response.begin(), response.end(), response_.c_array());
-      boost::asio::async_write(socket_, buffer(response_, max_length),
-                               boost::bind(&session::handle_read, this,
-                                           boost::asio::placeholders::error));
+      async_write(socket_, buffer(response_, response_.size()),
+                  boost::bind(&session::handle_read, shared_from_this(),
+                              boost::asio::placeholders::error));
       cout << "send->: " << response_.c_array() << endl;
-      response_.assign(0);
     } else {
-      delete this;
+      stop_service();
     }
   }
 
-  void handle_read(const boost::system::error_code &error) {
-    if (error)
+  void handle_read(const error_code &error) {
+    if (error) {
+      cerr << BOOST_CURRENT_FUNCTION << error << endl;
       delete this;
+    }
     request_.assign(0);
-    socket_.async_read_some(
-        buffer(request_, max_length),
-        boost::bind(&session::handle_write, this,
-                    boost::asio::placeholders::error,
-                    boost::asio::placeholders::bytes_transferred));
+    socket_.async_read_some(buffer(request_, max_length),
+                            boost::bind(&session::handle_write,
+                                        shared_from_this(),
+                                        boost::asio::placeholders::error));
   }
 
   void stop_service() {
@@ -73,35 +81,30 @@ private:
 
 class server {
 public:
-  server(boost::asio::io_context &io_context, short port, const string data)
-      : io_context_(io_context), data_file(data),
-        acceptor_(io_context,
-                  tcp::endpoint(tcp::v4(), static_cast<unsigned short>(port))) {
+  server(io_service &ios, tcp::endpoint endpoint, const string data)
+      : acceptor_(ios, endpoint), data_file_(data) {
     start_accept();
   }
 
 private:
   void start_accept() {
-    session *new_session = new session(io_context_, data_file);
+    session::pointer new_session =
+        session::create(acceptor_.get_io_service(), data_file_);
     acceptor_.async_accept(new_session->socket(),
                            boost::bind(&server::handle_accept, this,
                                        new_session,
                                        boost::asio::placeholders::error));
   }
 
-  void handle_accept(session *new_session,
-                     const boost::system::error_code &error) {
+  void handle_accept(session::pointer new_session, const error_code &error) {
     if (!error) {
       new_session->start();
-    } else {
-      delete new_session;
+      start_accept();
     }
-    start_accept();
   }
 
-  boost::asio::io_context &io_context_;
-  const string data_file;
   tcp::acceptor acceptor_;
+  const string data_file_;
 };
 
 int main(int argc, char *argv[]) {
@@ -111,13 +114,13 @@ int main(int argc, char *argv[]) {
     return 1;
   }
   try {
-    boost::asio::io_context io_context;
-    server srv(io_context, static_cast<short>(std::atoi(argv[1])),
-               "server.json");
-    io_context.run();
+    io_service ios;
+    auto port = static_cast<unsigned short>(atoi(argv[1]));
+    tcp::endpoint endpoint = tcp::endpoint(tcp::v4(), port);
+    server srv(ios, endpoint, "server.json");
+    ios.run();
   } catch (std::exception &e) {
     std::cerr << "Exception: " << e.what() << "\n";
   }
-
   return 0;
 }
