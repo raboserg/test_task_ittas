@@ -5,12 +5,9 @@
 #include <iostream>
 
 #include "json_helper.hpp"
-#include <boost/property_tree/json_parser.hpp>
-#include <boost/property_tree/ptree.hpp>
 
 using namespace boost::asio;
 using namespace boost::asio::ip;
-namespace pt = boost::property_tree;
 
 class session : public enable_shared_from_this<session> {
 public:

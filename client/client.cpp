@@ -50,12 +50,17 @@ int main(int argc, char *argv[]) {
     cerr << "Usage: client <host> <port>\n";
     return 1;
   }
-  io_context io_context;
-  tcp::resolver resolver(io_context);
-  tcp::resolver::results_type endpoints =
-      resolver.resolve(tcp::v4(), argv[1], argv[2]);
-  tcp::socket client_socket(io_context);
-  connect(client_socket, endpoints);
+  //  io_context io_context;
+  //  tcp::resolver resolver(io_context);
+  //  tcp::resolver::results_type endpoints =
+  //      resolver.resolve(tcp::v4(), argv[1], argv[2]);
+
+  //  tcp::socket client_socket(io_context);
+  //  connect(client_socket, endpoints);
+  io_service ios;
+  tcp::socket client_socket(ios);
+  tcp::resolver resolver(ios);
+  connect(client_socket, resolver.resolve({argv[1], argv[2]}));
 
   bool session = true;
   while (session) {
