@@ -7,3 +7,5 @@ build
 DartConfiguration.tsl
 CTestTestfile.cmake
 CMakeLists.txt.user
+CMakeLists.txt.autosave
+

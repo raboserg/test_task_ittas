@@ -4,3 +4,5 @@ project(test_task_ittas)
 
 add_subdirectory(server)
 add_subdirectory(client)
+
+enable_testing()

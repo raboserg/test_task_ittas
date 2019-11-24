@@ -7,10 +7,7 @@ set(CMAKE_C_FLAGS "-Wall -g -std=gnu11")
 
 add_executable(${PROJECT_NAME} server.cpp json_helper.hpp)
 
-target_link_libraries(${PROJECT_NAME} pthread boost_thread boost_system)
+target_link_libraries(${PROJECT_NAME} pthread boost_thread boost_system ${Boost_LIBRARIES})
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/server.json
     DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-
-include(CTest)
-enable_testing()
